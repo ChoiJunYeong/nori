@@ -35,7 +35,7 @@ bool Node::overlap(const int index, const BoundingBox3f& bbox) const {
 }
 
 void Node::addChild(std::unique_ptr<Node> node) {
-	if (node != nullptr) {
+	if (node) {
 		m_child_list.emplace_back(std::move(node));
 	}
 }
@@ -52,16 +52,41 @@ const BoundingBox3f Node::GetChildBox(const int index) {
 	return check_box;
 }
 
-void Node::getRayIntersectList(const Ray3f &ray, std::vector<uint32_t>& ret) const {
+uint32_t Node::rayIntersect(Ray3f &ray, Intersection &its, bool shadowRay, Mesh* mesh) {
 	if (!m_bbox.rayIntersect(ray))
-		return;
+		return (uint32_t)-1;
 	if (m_leaf) {
-		ret.insert(ret.end(), m_index_list.begin(), m_index_list.end());
-		return;
+		uint32_t ret = (uint32_t)-1;
+		for (auto idx : m_index_list) {
+			float u, v, t;
+			if (mesh->rayIntersect(idx, ray, u, v, t)) {
+				/* An intersection was found! Can terminate
+				   immediately if this is a shadow ray query */
+				if (shadowRay)
+					return (uint32_t)0;
+				ray.maxt = its.t = t;
+				its.uv = Point2f(u, v);
+				its.mesh = mesh;
+				ret = idx;
+			}
+		}
+		return ret;
 	}
+	if (m_sort_origin != ray.o) {
+		std::sort(m_child_list.begin(), m_child_list.end(),
+			[&](const std::unique_ptr<Node>& a, const std::unique_ptr<Node>& b)
+		{
+			return a->m_bbox.distanceTo(ray.o) < b->m_bbox.distanceTo(ray.o);
+		});
+		m_sort_origin = ray.o;
+	}
+	
 	for (auto& child : m_child_list) {
-		child->getRayIntersectList(ray,ret);
+		uint32_t ret = child->rayIntersect(ray, its, shadowRay, mesh);
+		if (ret != -1)
+			return ret;
 	}
+	return (uint32_t)-1;
 }
 
 

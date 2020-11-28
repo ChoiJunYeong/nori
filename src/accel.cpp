@@ -69,29 +69,13 @@ std::unique_ptr<Node> Accel::build(const BoundingBox3f& box, const std::vector<u
 }
 
 bool Accel::rayIntersect(const Ray3f &ray_, Intersection &its, bool shadowRay) const {
-    bool foundIntersection = false;  // Was an intersection found so far?
-    uint32_t f = (uint32_t) -1;      // Triangle index of the closest intersection
 
     Ray3f ray(ray_); /// Make a copy of the ray (we will need to update its '.maxt' value)
+	uint32_t f = m_root->rayIntersect(ray, its, shadowRay, m_mesh);  // Triangle index of the closest intersection
 
-	std::vector<uint32_t> index_list;
-	m_root->getRayIntersectList(ray, index_list);
-	for (auto idx : index_list) {
-		float u, v, t;
-		if (m_mesh->rayIntersect(idx, ray, u, v, t)) {
-			/* An intersection was found! Can terminate
-			   immediately if this is a shadow ray query */
-			if (shadowRay)
-				return true;
-			ray.maxt = its.t = t;
-			its.uv = Point2f(u, v);
-			its.mesh = m_mesh;
-			f = idx;
-			foundIntersection = true;
-		}
-	}
-
-    if (foundIntersection) {
+    if (f != (uint32_t)-1) {
+		if (shadowRay)
+			return true;
         /* At this point, we now know that there is an intersection,
            and we know the triangle index of the closest such intersection.
 
@@ -144,7 +128,7 @@ bool Accel::rayIntersect(const Ray3f &ray_, Intersection &its, bool shadowRay) c
         }
     }
 
-    return foundIntersection;
+    return f != -1;
 }
 
 NORI_NAMESPACE_END
