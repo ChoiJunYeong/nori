@@ -44,7 +44,7 @@ void Accel::build() {
 std::unique_ptr<Node> Accel::build(const BoundingBox3f& box, const std::vector<uint32_t>& index_list) {
 	if (index_list.size() == 0)
 		return nullptr;
-	if (index_list.size() <= 10 || m_bbox.getVolume()/ box.getVolume() > std::pow(OCTREE_NUM,10)) {
+	if (index_list.size() <= 15 || m_bbox.getVolume()/ box.getVolume() > std::pow(OCTREE_NUM,10)) {
 		return std::make_unique<Node>(box,index_list);
 	}
 	std::unique_ptr<Node> node = std::make_unique<Node>(box);

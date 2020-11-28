@@ -5,18 +5,7 @@ NORI_NAMESPACE_BEGIN
 Node::Node(BoundingBox3f box):
 	m_bbox(box),
 	m_leaf(false)
-{ 
-	for (int index = 0; index < OCTREE_NUM; index++) {
-		Point3f x = m_bbox.getCenter();
-		Point3f y = m_bbox.getCorner(index);
-		for (int i = 0; i < 3; i++) {
-			if (x[i] > y[i]) {
-				std::swap(x[i], y[i]);
-			}
-		}
-		m_child_box[index] = BoundingBox3f(x, y);
-	}
-}
+{ }
 
 Node::Node(BoundingBox3f box, std::vector<uint32_t> index_list):
 	m_bbox(box),
@@ -29,7 +18,15 @@ Node::~Node(){
 
 bool Node::overlap(const int index, const BoundingBox3f& bbox) const {
 	try {
-		return m_child_box[index].overlaps(bbox, true);
+		Point3f x = m_bbox.getCenter();
+		Point3f y = m_bbox.getCorner(index);
+		for (int i = 0; i < 3; i++) {
+			if (x[i] > y[i]) {
+				std::swap(x[i], y[i]);
+			}
+		}
+		BoundingBox3f check_box(x, y);
+		return check_box.overlaps(bbox, true);
 	}
 	catch (std::exception& e) {
 		std::cout << e.what();
@@ -43,8 +40,16 @@ void Node::addChild(std::unique_ptr<Node> node) {
 	}
 }
 
-const BoundingBox3f& Node::GetChildBox(const int index) {
-	return m_child_box[index];
+const BoundingBox3f Node::GetChildBox(const int index) {
+	Point3f x = m_bbox.getCenter();
+	Point3f y = m_bbox.getCorner(index);
+	for (int i = 0; i < 3; i++) {
+		if (x[i] > y[i]) {
+			std::swap(x[i], y[i]);
+		}
+	}
+	BoundingBox3f check_box(x, y);
+	return check_box;
 }
 
 void Node::getRayIntersectList(const Ray3f &ray, std::vector<uint32_t>& ret) const {
