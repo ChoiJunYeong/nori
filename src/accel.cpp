@@ -39,6 +39,11 @@ void Accel::build() {
 	m_root = build(m_bbox,index_list);
 
 	END_TIME_TRACK("build");
+
+	std::cout << "memory size:" << sizeof(*m_root) << '\n';
+	std::cout << "node number:" << m_root->GetTotalNodeNumber() << '\n';
+	std::cout << "leaf number:" << m_root->GetTotalLeafNumber() << '\n';
+	std::cout << "ave leaf node:" << m_root->GetTotalIndexNumberOfLeaf()/ m_root->GetTotalLeafNumber() << '\n';
 }
 
 std::unique_ptr<Node> Accel::build(const BoundingBox3f& box, const std::vector<uint32_t>& index_list) {

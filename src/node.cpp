@@ -64,4 +64,36 @@ void Node::getRayIntersectList(const Ray3f &ray, std::vector<uint32_t>& ret) con
 	}
 }
 
+
+int Node::GetNodeMemorySize() {
+	return sizeof(this);
+}
+int Node::GetTotalNodeNumber() {
+	if (m_leaf)
+		return 1;
+	int ret = 1;
+	for (auto& child : m_child_list) {
+		ret += child->GetTotalNodeNumber();
+	}
+	return ret;
+}
+int Node::GetTotalLeafNumber() {
+	if (m_leaf)
+		return 1;
+	int ret = 0;
+	for (auto& child : m_child_list) {
+		ret += child->GetTotalLeafNumber();
+	}
+	return ret;
+}
+int Node::GetTotalIndexNumberOfLeaf() {
+	if (m_leaf)
+		return m_index_list.size();
+	int ret = 0;
+	for (auto& child : m_child_list) {
+		ret += child->GetTotalIndexNumberOfLeaf();
+	}
+	return ret;
+}
+
 NORI_NAMESPACE_END
