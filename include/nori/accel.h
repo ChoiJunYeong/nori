@@ -19,6 +19,15 @@
 #pragma once
 
 #include <nori/mesh.h>
+#include <nori/node.h>
+
+#define START_TIME_TRACK \
+	auto start = std::chrono::steady_clock::now();
+
+#define END_TIME_TRACK(s) \
+	auto end = std::chrono::steady_clock::now(); \
+	auto diff = end - start; \
+	std::cout << s << '\n' << std::chrono::duration <double, std::milli>(diff).count() << " ms" << endl;
 
 NORI_NAMESPACE_BEGIN
 
@@ -40,6 +49,7 @@ public:
 
     /// Build the acceleration data structure (currently a no-op)
     void build();
+	std::unique_ptr<Node> Accel::build(const BoundingBox3f& box, const std::vector<uint32_t>& index_list);
 
     /// Return an axis-aligned box that bounds the scene
     const BoundingBox3f &getBoundingBox() const { return m_bbox; }
@@ -68,6 +78,7 @@ public:
 private:
     Mesh         *m_mesh = nullptr; ///< Mesh (only a single one for now)
     BoundingBox3f m_bbox;           ///< Bounding box of the entire scene
+	std::unique_ptr<Node>		 m_root = nullptr;
 };
 
 NORI_NAMESPACE_END

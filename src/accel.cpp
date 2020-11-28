@@ -18,6 +18,7 @@
 
 #include <nori/accel.h>
 #include <Eigen/Geometry>
+#include <chrono>
 
 NORI_NAMESPACE_BEGIN
 
@@ -29,7 +30,37 @@ void Accel::addMesh(Mesh *mesh) {
 }
 
 void Accel::build() {
-    /* Nothing to do here for now */
+	START_TIME_TRACK;
+	std::vector<uint32_t> index_list;
+	index_list.reserve(m_mesh->getTriangleCount());
+	for (uint32_t idx = 0; idx < m_mesh->getTriangleCount(); ++idx) {
+		index_list.emplace_back(idx);
+	}
+	m_root = build(m_bbox,index_list);
+
+	END_TIME_TRACK("build");
+}
+
+std::unique_ptr<Node> Accel::build(const BoundingBox3f& box, const std::vector<uint32_t>& index_list) {
+	if (index_list.size() == 0)
+		return nullptr;
+	if (index_list.size() <= 10 || m_bbox.getVolume()/ box.getVolume() > std::pow(OCTREE_NUM,10)) {
+		return std::make_unique<Node>(box,index_list);
+	}
+	std::unique_ptr<Node> node = std::make_unique<Node>(box);
+	std::array<std::vector<uint32_t>, OCTREE_NUM> new_index_list;
+	for (uint32_t index : index_list) {
+		for (int i = 0; i < OCTREE_NUM; i++) {
+			if (node->overlap(i,m_mesh->getBoundingBox(index))) {
+				new_index_list[i].emplace_back(index);
+			}
+		}
+	}
+
+	for (int i = 0; i < OCTREE_NUM; ++i) {
+		node->addChild(build(node->GetChildBox(i),new_index_list[i]));
+	}
+	return node;
 }
 
 bool Accel::rayIntersect(const Ray3f &ray_, Intersection &its, bool shadowRay) const {
@@ -38,21 +69,22 @@ bool Accel::rayIntersect(const Ray3f &ray_, Intersection &its, bool shadowRay) c
 
     Ray3f ray(ray_); /// Make a copy of the ray (we will need to update its '.maxt' value)
 
-    /* Brute force search through all triangles */
-    for (uint32_t idx = 0; idx < m_mesh->getTriangleCount(); ++idx) {
-        float u, v, t;
-        if (m_mesh->rayIntersect(idx, ray, u, v, t)) {
-            /* An intersection was found! Can terminate
-               immediately if this is a shadow ray query */
-            if (shadowRay)
-                return true;
-            ray.maxt = its.t = t;
-            its.uv = Point2f(u, v);
-            its.mesh = m_mesh;
-            f = idx;
-            foundIntersection = true;
-        }
-    }
+	std::vector<uint32_t> index_list;
+	m_root->getRayIntersectList(ray, index_list);
+	for (auto idx : index_list) {
+		float u, v, t;
+		if (m_mesh->rayIntersect(idx, ray, u, v, t)) {
+			/* An intersection was found! Can terminate
+			   immediately if this is a shadow ray query */
+			if (shadowRay)
+				return true;
+			ray.maxt = its.t = t;
+			its.uv = Point2f(u, v);
+			its.mesh = m_mesh;
+			f = idx;
+			foundIntersection = true;
+		}
+	}
 
     if (foundIntersection) {
         /* At this point, we now know that there is an intersection,
