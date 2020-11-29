@@ -20,6 +20,7 @@
 
 #include <nori/mesh.h>
 #include <nori/node.h>
+#include <array>
 
 #define START_TIME_TRACK \
 	auto start = std::chrono::steady_clock::now();
@@ -49,7 +50,7 @@ public:
 
     /// Build the acceleration data structure (currently a no-op)
     void build();
-	std::unique_ptr<Node> Accel::build(const BoundingBox3f& box, const std::vector<uint32_t>& index_list);
+	Node* Accel::build(const BoundingBox3f& box, const std::vector<uint32_t>& index_list) const;
 
     /// Return an axis-aligned box that bounds the scene
     const BoundingBox3f &getBoundingBox() const { return m_bbox; }

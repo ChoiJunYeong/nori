@@ -1,25 +1,28 @@
 #include <nori/node.h>
+#include <memory>
 
 NORI_NAMESPACE_BEGIN
 
 Node::Node(BoundingBox3f box):
-	m_bbox(box),
 	m_leaf(false)
-{ }
-
+{
+	m_bbox = std::make_unique<BoundingBox3f>(box);
+}
 Node::Node(BoundingBox3f box, std::vector<uint32_t> index_list):
-	m_bbox(box),
 	m_leaf(true),
 	m_index_list(index_list)
-{ }
+{ 
+	m_bbox = std::make_unique<BoundingBox3f>(box);
+}
 
 Node::~Node(){
+	std::cout << "asdasdsa";
 }
 
 bool Node::overlap(const int index, const BoundingBox3f& bbox) const {
 	try {
-		Point3f x = m_bbox.getCenter();
-		Point3f y = m_bbox.getCorner(index);
+		Point3f x = m_bbox->getCenter();
+		Point3f y = m_bbox->getCorner(index);
 		for (int i = 0; i < 3; i++) {
 			if (x[i] > y[i]) {
 				std::swap(x[i], y[i]);
@@ -34,15 +37,13 @@ bool Node::overlap(const int index, const BoundingBox3f& bbox) const {
 	return false;
 }
 
-void Node::addChild(std::unique_ptr<Node> node) {
-	if (node) {
-		m_child_list.emplace_back(std::move(node));
-	}
+void Node::addChild(Node* node) {
+	m_child_list.emplace_back(std::unique_ptr<Node>(node));
 }
 
-const BoundingBox3f Node::GetChildBox(const int index) {
-	Point3f x = m_bbox.getCenter();
-	Point3f y = m_bbox.getCorner(index);
+const BoundingBox3f Node::GetChildBox(const int index) const{
+	Point3f x = m_bbox->getCenter();
+	Point3f y = m_bbox->getCorner(index);
 	for (int i = 0; i < 3; i++) {
 		if (x[i] > y[i]) {
 			std::swap(x[i], y[i]);
@@ -53,7 +54,7 @@ const BoundingBox3f Node::GetChildBox(const int index) {
 }
 
 uint32_t Node::rayIntersect(Ray3f &ray, Intersection &its, bool shadowRay, Mesh* mesh) {
-	if (!m_bbox.rayIntersect(ray))
+	if (!m_bbox->rayIntersect(ray))
 		return (uint32_t)-1;
 	if (m_leaf) {
 		uint32_t ret = (uint32_t)-1;
@@ -72,11 +73,12 @@ uint32_t Node::rayIntersect(Ray3f &ray, Intersection &its, bool shadowRay, Mesh*
 		}
 		return ret;
 	}
+
 	if (m_sort_origin != ray.o) {
 		std::sort(m_child_list.begin(), m_child_list.end(),
-			[&](const std::unique_ptr<Node>& a, const std::unique_ptr<Node>& b)
+			[&](const auto& a, const auto& b)
 		{
-			return a->m_bbox.distanceTo(ray.o) < b->m_bbox.distanceTo(ray.o);
+			return a->m_bbox->distanceTo(ray.o) < b->m_bbox->distanceTo(ray.o);
 		});
 		m_sort_origin = ray.o;
 	}
@@ -90,10 +92,10 @@ uint32_t Node::rayIntersect(Ray3f &ray, Intersection &its, bool shadowRay, Mesh*
 }
 
 
-int Node::GetNodeMemorySize() {
+int Node::GetNodeMemorySize()  const {
 	return sizeof(this);
 }
-int Node::GetTotalNodeNumber() {
+int Node::GetTotalNodeNumber()  const {
 	if (m_leaf)
 		return 1;
 	int ret = 1;
@@ -102,7 +104,7 @@ int Node::GetTotalNodeNumber() {
 	}
 	return ret;
 }
-int Node::GetTotalLeafNumber() {
+int Node::GetTotalLeafNumber()  const {
 	if (m_leaf)
 		return 1;
 	int ret = 0;
@@ -111,7 +113,7 @@ int Node::GetTotalLeafNumber() {
 	}
 	return ret;
 }
-int Node::GetTotalIndexNumberOfLeaf() {
+int Node::GetTotalIndexNumberOfLeaf()  const {
 	if (m_leaf)
 		return m_index_list.size();
 	int ret = 0;

@@ -19,6 +19,9 @@
 #include <nori/accel.h>
 #include <Eigen/Geometry>
 #include <chrono>
+#include "tbb/tbb.h"
+#include <mutex>
+#include <memory>
 
 NORI_NAMESPACE_BEGIN
 
@@ -36,7 +39,8 @@ void Accel::build() {
 	for (uint32_t idx = 0; idx < m_mesh->getTriangleCount(); ++idx) {
 		index_list.emplace_back(idx);
 	}
-	m_root = build(m_bbox,index_list);
+	Node* node = build(m_bbox, index_list);
+	m_root = std::unique_ptr<Node>(node);
 
 	END_TIME_TRACK("build");
 
@@ -46,13 +50,13 @@ void Accel::build() {
 	std::cout << "ave leaf node:" << m_root->GetTotalIndexNumberOfLeaf()/ m_root->GetTotalLeafNumber() << '\n';
 }
 
-std::unique_ptr<Node> Accel::build(const BoundingBox3f& box, const std::vector<uint32_t>& index_list) {
+Node* Accel::build(const BoundingBox3f& box, const std::vector<uint32_t>& index_list) const {
 	if (index_list.size() == 0)
 		return nullptr;
 	if (index_list.size() <= 15 || m_bbox.getVolume()/ box.getVolume() > std::pow(OCTREE_NUM,10)) {
-		return std::make_unique<Node>(box,index_list);
+		return new Node(box,index_list);
 	}
-	std::unique_ptr<Node> node = std::make_unique<Node>(box);
+	Node* node = new Node(box);
 	std::array<std::vector<uint32_t>, OCTREE_NUM> new_index_list;
 	for (uint32_t index : index_list) {
 		for (int i = 0; i < OCTREE_NUM; i++) {
@@ -61,10 +65,15 @@ std::unique_ptr<Node> Accel::build(const BoundingBox3f& box, const std::vector<u
 			}
 		}
 	}
-
-	for (int i = 0; i < OCTREE_NUM; ++i) {
-		node->addChild(build(node->GetChildBox(i),new_index_list[i]));
-	}
+	std::mutex mu;
+	tbb::parallel_for(0, OCTREE_NUM, [&](size_t i) {
+		Node* child = build(node->GetChildBox(i), new_index_list[i]);
+		mu.lock();
+		if (child != nullptr) {
+			node->addChild(child);
+		}
+		mu.unlock();
+	});
 	return node;
 }
 
@@ -128,7 +137,7 @@ bool Accel::rayIntersect(const Ray3f &ray_, Intersection &its, bool shadowRay) c
         }
     }
 
-    return f != -1;
+    return f != (uint32_t)-1;
 }
 
 NORI_NAMESPACE_END
